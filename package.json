@@ -1,0 +1,21 @@
+{
+  "name": "kafka-poc",
+  "version": "0.0.1",
+  "scripts": {},
+  "private": true,
+  "engines": {
+    "node": "^16.0",
+    "npm": "^8.19"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/jest": "28.1.1",
+    "ts-jest": "28.0.5",
+    "ts-loader": "^9.4.1",
+    "ts-node": "10.9.1",
+    "tslib": "^2.4.0",
+    "typescript": "^4.8.4"
+  }
+}
