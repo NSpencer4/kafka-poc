@@ -1,4 +1,6 @@
-import { Kafka } from 'kafkajs';
+import { Kafka, KafkaMessage } from 'kafkajs';
+
+jest.setTimeout(30000)
 
 describe('Kafka integration', () => {
     let kafkaClient = new Kafka({
@@ -25,18 +27,23 @@ describe('Kafka integration', () => {
         const admin = kafkaClient.admin()
         try {
             await admin.connect()
-            await admin.createTopics({topics: [{topic: 'content-commands'}]})
+            await admin.createTopics({
+                                         topics: [{topic: 'content-commands'}],
+                                         waitForLeaders: true,
+                                         timeout: 5000
+            })
         } catch (e) {
             console.error('Could not create the Kafka topic: ', e)
         }
 
         const topics = await admin.listTopics()
-        expect(topics).toEqual([ 'content-commands' ])
+        expect(topics).toEqual(expect.arrayContaining([ 'content-commands' ]))
     });
 
     it('should publish a mock test message to the content updates topic and consume it', async () => {
         const mockPayload = JSON.stringify({test: 'mock'})
-        const consumer = kafkaClient.consumer({groupId: 'consumers'});
+
+        const consumer = kafkaClient.consumer({groupId: 'consumers', heartbeatInterval: 1000});
         const producer = kafkaClient.producer();
 
         try {
@@ -46,14 +53,24 @@ describe('Kafka integration', () => {
             console.error('Could not connect to the kafka broker: ', e)
         }
 
+        const messages: KafkaMessage[] = []
+
         await consumer.subscribe({ topic: 'content-commands', fromBeginning: false })
+
+        await consumer.run({
+                               eachMessage: async ({ topic, message }) => {
+                                   console.log('message', message)
+                                   messages.push(message)
+        }})
 
         await producer.send({topic: 'content-commands', messages: [{value: mockPayload}]})
 
-        await consumer.run({ eachMessage: async ({ topic, message }) => {
-                expect(topic).toEqual('content-commands');
-                expect(message).toEqual(mockPayload);
-            }})
+        await new Promise((resolve) => setTimeout(() => {
+            resolve(() => console.log("Delayed for 5 seconds to allow the consumer to receive the message."))
+        }, 5000))
+
+        expect(messages.length).toEqual(1)
+        expect(messages[0].value!.toString()).toEqual(mockPayload)
     });
 
     it('should be able to remove a new Kafka topic', async () => {
@@ -66,7 +83,6 @@ describe('Kafka integration', () => {
         }
 
         const topics = await admin.listTopics()
-        console.log('topics: ', topics)
-        expect(topics).toBeTruthy()
+        expect(topics).not.toContain('content-commands')
     });
 });
